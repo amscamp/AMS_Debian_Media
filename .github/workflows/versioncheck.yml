@@ -13,7 +13,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: get current dev release version
         run: echo "CURRENT_DEV_VERSION=$(curl -s https://api.github.com/repos/amscamp/AMS_Debian_Media/releases |jq -r 'map(select(.prerelease)) | first | .tag_name'| sed 's|-dev||g' )" >> $GITHUB_ENV      
       - name: get current main release version
