@@ -1,0 +1,39 @@
+name: check for new debian release
+
+on:
+  schedule:
+    # * is a special character in YAML so you have to quote this string
+    - cron:  '30 4 * * *'
+  workflow_dispatch: # Allows action to be run manually from the Actions tab
+
+
+jobs:
+  build_and_publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: get current dev release version
+        run: echo "CURRENT_DEV_VERSION=$(curl -s https://api.github.com/repos/amscamp/AMS_Debian_Media/releases |jq -r 'map(select(.prerelease)) | first | .tag_name'| sed 's|-dev||g' )" >> $GITHUB_ENV      
+      - name: get current main release version
+        run: echo "CURRENT_MAIN_VERSION=$(curl -s https://api.github.com/repos/amscamp/AMS_Debian_Media/releases |jq -r 'map(select(.prerelease=false)) | first | .tag_name'| sed 's|-main||g')" >> $GITHUB_ENV
+      - name: get new release version
+        run: echo "NEW_VERSION=$(curl -s https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/SHA256SUMS |awk -F ' ' '{print $2}' | grep 'debian-[0-9]*\.[0-9]*\.[0-9]*\-amd64-netinst.iso' | sed 's|debian-||g' | sed 's|-amd64-netinst.iso||g')" >> $GITHUB_ENV
+      - name: Check versions presence
+        id: checkversions
+        shell: bash
+        run: |
+          if [[ "$CURRENT_DEV_VERSION" == "" || "$CURRENT_MAIN_VERSION" == "" || "$NEW_VERSION" == "" ]]; then
+            echo "versionspresent=NO" >> $GITHUB_OUTPUT
+          else
+            echo "versionspresent=YES" >> $GITHUB_OUTPUT
+          fi
+      - name: fail if versions are not present
+        if: (steps.checkversions.outputs.versionspresent == 'NO')
+        run: exit 1
+      - name: Repository Dispatch
+        if: ${{ env.CURRENT_MAIN_VERSION != env.NEW_VERSION || env.CURRENT_DEV_VERSION != env.NEW_VERSION}}
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          event-type: new-version

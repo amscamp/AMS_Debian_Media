@@ -1,0 +1,108 @@
+name: build-debian
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**'
+      - '!README.md'
+      - '!LICENSE'
+      - '!Makefile'
+      - '!preseed-main.cfg'
+      - '!preseed-dev.cfg'
+      - '!preseed*.cfg'
+      - '!.github/workflows/versioncheck.yml'
+      - '!.github/dependabot.yml'
+      - '!in-target-scripts'
+      - '!in-target-scripts/**'
+  pull_request:
+    branches: 
+      - main
+    paths:
+      - '**'
+      - '!README.md'
+      - '!LICENSE'
+      - '!Makefile'
+      - '!preseed-main.cfg'
+      - '!preseed-dev.cfg'
+      - '!preseed*.cfg'
+      - '!.github/workflows/versioncheck.yml'
+      - '!.github/dependabot.yml'
+      - '!in-target-scripts'
+      - '!in-target-scripts/**'
+
+  repository_dispatch:
+    types: [new-version]
+
+  workflow_dispatch: # Allows action to be run manually from the Actions tab
+
+jobs:
+  build-debian:
+    strategy:
+      fail-fast: false
+      matrix:
+        preseedtype: ["main", "dev"]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Build Linux Image
+        run: ./create_iso.sh ${{ matrix.preseedtype }} 
+      - name: List Foldercontent
+        run: ls -la
+      - name: rename image
+        run: mv debian-*-amd64-modified.iso debian-$(ls debian-*-modified* |  perl -pe '($_)=/([0-9]+([.][0-9]+)+)/')-amd64-ams-media-${{ matrix.preseedtype }}.iso
+      - name: get release version
+        run: echo "DEBIANVERSION=$(ls debian-*-amd64-ams-media* |  perl -pe '($_)=/([0-9]+([.][0-9]+)+)/')-${{ matrix.preseedtype }}" >> $GITHUB_ENV
+      - name: echo release version
+        run: echo ${{ env.DEBIANVERSION }}
+      - name: check if tag already exists
+        if: ${{ github.event_name != 'pull_request' }}
+        uses: rickstaa/action-create-tag@v1
+        continue-on-error: true
+        id: tag_create_first
+        with:
+          tag: ${{ env.DEBIANVERSION }}
+          tag_exists_error: true
+          message: "${{ env.DEBIANVERSION }} release"
+      - name: delete tag if nessecary
+        uses: dev-drprasad/delete-tag-and-release@v1.1 # PRERELEASE is v1.0 and can also be used to test and give us feedback
+        if: ${{ (steps.tag_create_first.outputs.tag_exists || steps.tag_create_first.outcome != 'success') && github.event_name != 'pull_request' }}
+        with:
+          tag_name: ${{ env.DEBIANVERSION }} #(required) tag name to delete 
+          github_token: ${{ secrets.GITHUB_TOKEN }} # (required) a GitHub token with write access to the repo that needs to be modified
+          delete_release: true #(optional) default: true 
+      - name: (re)create tag
+        if: ${{ github.event_name != 'pull_request' }}
+        uses: rickstaa/action-create-tag@v1
+        id: tag_create_second
+        with:
+          tag: ${{ env.DEBIANVERSION }}
+          force_push_tag: true
+          message: "${{ env.DEBIANVERSION }} release"
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        #if: ${{ startsWith(matrix.preseedtype, 'main')	}} && ${{ github.event_name != 'pull_request' }}
+        if: ${{ startsWith(matrix.preseedtype, 'main') && github.event_name != 'pull_request' }}
+        with:
+          files: "${{ github.workspace }}/debian-*-amd64-ams-media-${{ matrix.preseedtype }}.iso"
+          tag_name: ${{ env.DEBIANVERSION }}
+          body: current debian ${{ env.DEBIANVERSION }}
+          name: Release ${{ env.DEBIANVERSION }}
+          target_commitish: "main"
+          prerelease: false
+      - name: Prerelease
+        uses: softprops/action-gh-release@v2
+        #if: ${{ startsWith(matrix.preseedtype, 'dev')	}} && ${{ github.event_name != 'pull_request' }}
+        if: ${{ startsWith(matrix.preseedtype, 'dev')	&& github.event_name != 'pull_request' }}
+        with:
+          files: "${{ github.workspace }}/debian-*-amd64-ams-media-${{ matrix.preseedtype }}.iso"
+          tag_name: ${{ env.DEBIANVERSION }}
+          body: current debian ${{ env.DEBIANVERSION }}
+          name: Release ${{ env.DEBIANVERSION }}
+          target_commitish: "main"
+          prerelease: true
