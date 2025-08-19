@@ -25,12 +25,15 @@ GUID=$(id --group)
 UUID=$(id --user)
 new_files=$current_path/iso
 mbr_template=$current_path/isohdpfx.bin
-CURRISO=$(curl -s https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/SHA256SUMS |awk -F ' ' '{print $2}' | grep 'debian-[0-9]*\.[0-9]*\.[0-9]*\-amd64-netinst.iso')
+# Get latest Debian 12.x release by finding the highest version number
+LATEST_12_VERSION=$(curl -s https://cdimage.debian.org/debian-cd/ | grep -oE 'href="12\.[0-9]+\.[0-9]+/"' | sed 's/href="//g' | sed 's/\/"//g' | sort -V | tail -n1)
+CURRISO=$(curl -s https://cdimage.debian.org/debian-cd/$LATEST_12_VERSION/amd64/iso-cd/SHA256SUMS |awk -F ' ' '{print $2}' | grep 'debian-12\.[0-9]*\.[0-9]*\-amd64-netinst.iso')
 CURRVER=$(echo $CURRISO | sed 's|debian-||g' | sed 's|-amd64-netinst.iso||g')
 orig_iso=$current_path/$CURRISO
 # Download Debian netinstaller
-echo $CURRISO
-wget --quiet https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/$CURRISO
+echo "Using Debian version: $LATEST_12_VERSION"
+echo "ISO: $CURRISO"
+wget --quiet https://cdimage.debian.org/debian-cd/$LATEST_12_VERSION/amd64/iso-cd/$CURRISO
 
 
 # See https://wiki.debian.org/DebianInstaller/Preseed/EditIso
