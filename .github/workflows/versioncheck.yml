@@ -34,6 +34,6 @@ jobs:
         run: exit 1
       - name: Repository Dispatch
         if: ${{ env.CURRENT_MAIN_VERSION != env.NEW_VERSION || env.CURRENT_DEV_VERSION != env.NEW_VERSION}}
-        uses: peter-evans/repository-dispatch@v3
+        uses: peter-evans/repository-dispatch@v4
         with:
           event-type: new-version
