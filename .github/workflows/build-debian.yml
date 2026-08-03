@@ -85,7 +85,7 @@ jobs:
           force_push_tag: true
           message: "${{ env.DEBIANVERSION }} release"
       - name: Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         #if: ${{ startsWith(matrix.preseedtype, 'main')	}} && ${{ github.event_name != 'pull_request' }}
         if: ${{ startsWith(matrix.preseedtype, 'main') && github.event_name != 'pull_request' }}
         with:
@@ -96,7 +96,7 @@ jobs:
           target_commitish: "main"
           prerelease: false
       - name: Prerelease
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         #if: ${{ startsWith(matrix.preseedtype, 'dev')	}} && ${{ github.event_name != 'pull_request' }}
         if: ${{ startsWith(matrix.preseedtype, 'dev')	&& github.event_name != 'pull_request' }}
         with:
